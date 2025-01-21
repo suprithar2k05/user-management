@@ -5,25 +5,22 @@ import PropTypes from 'prop-types';
 import IconButton from '@material-ui/core/IconButton';
 import EditIcon from '@material-ui/icons/Edit';
 import DeleteIcon from '@material-ui/icons/DeleteOutlined';
-import SaveIcon from '@material-ui/icons/Save';
-import CancelIcon from '@material-ui/icons/Close';
+import AddIcon from '@mui/icons-material/Add';
 import { createTheme } from '@material-ui/core/styles';
 import { makeStyles } from '@material-ui/styles';
 import Snackbar from '@mui/material/Snackbar';
 import { useState } from "react";
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Modal from '@mui/material/Modal';
-import TextField from '@mui/material/TextField';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import OutlinedInput from '@mui/material/OutlinedInput';
 import { UserModal } from "./UserModal";
 import CloseIcon from '@mui/icons-material/Close';
 
 const defaultTheme = createTheme();
-
+const INITIAL_USER_DATA =  {
+  firstName: '',
+  lastName: '',
+  email: '',
+  department: '',
+}
 const useStyles = makeStyles(
   (theme) => ({
     root: {
@@ -39,32 +36,83 @@ const useStyles = makeStyles(
   { defaultTheme },
 );
 
+function postUserDetails(newId, id, setShowToast) {
+  fetch(`https://jsonplaceholder.typicode.com/users`, {
+    method: 'POST',
+    body: JSON.stringify({
+      userId: newId||id,
+    }),
+    headers: {
+      'Content-type': 'application/json; charset=UTF-8',
+    },
+  }).then(res => {
+    if(res.status == '201') {
+      setShowToast({showToast:true, message: `User ${newId|| id} ${newId? 'created': 'updated'}`});
+    } else {
+      setShowToast({showToast:true, message: `User ${newId|| id} ${newId? 'creation': 'updation'} failed`});
+    }
+  })
+}
 
-function RowMenuCell(props, setShowToast) {
-  const [open, setOpen] = useState(false);
+function RowMenuCell({props, setShowToast, userData, setUserData, open, setOpen, isNew, setIsNew, error, setError}) {
   const { api, id, row } = props;
   const classes = useStyles();
-  const [userData, setUserData] = useState({
-    firstName: row.firstName,
-    lastName: row.lastName,
-    email: row.email,
-    department: row.department,
-  });
-
   const changeHandler = e => {
-    setUserData({...userData, [e.target.name]: e.target.value})
+    setUserData({...userData, [e.target.name]: e.target.value});
+    setError({
+      ...error,
+      [e.target.name]: '',
+    })
   }
 
   const handleEditClick = (event) => {
+    setUserData({
+      firstName: row.firstName,
+      lastName: row.lastName,
+      email: row.email,
+      department: row.department,
+    });
     event.stopPropagation();
     setOpen(true);
+    setIsNew(false);
   };
 
   const handleSaveClick = (event) => {
     event.stopPropagation();
-    setOpen(false);
-    api.updateRows([{ id, _action: 'update', ...userData }]);
-    setShowToast({showToast:true, message: `User ${id} updated`});
+    let isError = false;
+    const errorLabels = INITIAL_USER_DATA;
+    const {firstName, lastName, email, department} = userData;
+    if(!firstName) {
+      errorLabels.firstName = 'firstname is required'
+      isError = true;
+    }
+    if(!lastName) {
+      errorLabels.lastName = 'lastname is required'
+      isError = true;
+    }
+    if(!department) {
+      errorLabels.department= 'department is required'
+      isError = true;
+    }
+    setError(errorLabels);
+    if(!email) { 
+      errorLabels.email = 'email is required'
+      isError = true;
+    }
+
+    if(!isError) {
+      if(isNew) {
+        const newId = api.getAllRowIds().length + 1;
+        api.updateRows([{ id: newId, ...userData }]);
+        
+        postUserDetails(newId, id, setShowToast)
+        setOpen(false);
+        return;
+      }
+      api.updateRows([{ id, _action: 'update', ...userData }]);
+      setOpen(false);
+      postUserDetails('', id, setShowToast);
+    }
   };
 
   const handleDeleteClick = (event) => {
@@ -78,8 +126,9 @@ function RowMenuCell(props, setShowToast) {
       headers: {
         'Content-type': 'application/json; charset=UTF-8',
       },
+    }).then(res => {
+      setShowToast({showToast:true, message: `User ${id} deleted`});
     })
-    setShowToast({showToast:true, message: `User ${id} deleted`});
   };
 
   const handleCancelClick = (event) => {
@@ -115,7 +164,7 @@ function RowMenuCell(props, setShowToast) {
       >
         <DeleteIcon fontSize="small" />
       </IconButton>
-      <UserModal userData={userData} changeHandler={changeHandler} handleClose={handleClose} open={open} row={row} handleSaveClick={handleSaveClick} handleCancelClick={handleCancelClick}/>
+      <UserModal error={error} setError={setError} isNew={isNew} userData={userData} changeHandler={changeHandler} handleClose={handleClose} open={open} row={row} handleSaveClick={handleSaveClick} handleCancelClick={handleCancelClick}/>
     </div>
   );
 }
@@ -129,13 +178,22 @@ RowMenuCell.propTypes = {
 
 const paginationModel = { page: 0, pageSize: 5 };
 
+
 export  const UserDashboard = () => {
   const [users, setUsers] = useUserData(`https://jsonplaceholder.typicode.com/users`);
   
+  const [isNew, setIsNew] = useState(false);
+  const [userData, setUserData] = useState(INITIAL_USER_DATA);
+
+  const [error, setError] = useState(INITIAL_USER_DATA)
+
+  const [open, setOpen] = useState(false);
+
   const [toast, setShowToast] = useState({
     showToast: false,
-    message: 'Item Deleted'
+    message: ''
   });
+
   const columns = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'firstName', headerName: 'First name', width: 130 },
@@ -152,7 +210,12 @@ export  const UserDashboard = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      renderCell: (props) => RowMenuCell(props, setShowToast),
+      renderCell: (props) => {
+        const options = {
+          props, setShowToast, userData, setUserData, open, setOpen, isNew,setIsNew, setUsers, users, error, setError
+        }
+        return RowMenuCell(options)
+      },
       sortable: false,
       width: 100,
       headerAlign: 'center',
@@ -185,9 +248,33 @@ export  const UserDashboard = () => {
     </>
   );
 
+  const addUserHandler = () => {
+    setOpen(true);
+    setUserData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      department: '',
+    });
+    setIsNew(true);
+    setError({
+      firstName: '', 
+      lastName: '', 
+      department: '', 
+      email: '', 
+    })
+  }
+
+  const saveUserHandler = () => {
+    setUsers([userData, ...users]);
+  }
+
   return (
     <>
     <h1>User Dashboard</h1>
+    <Button onClick={addUserHandler} variant="outlined" startIcon={<AddIcon />}>
+      Add User
+    </Button>
     <Paper sx={{ height: 400, width: '100%' }}>
       <DataGrid
         rows={users}

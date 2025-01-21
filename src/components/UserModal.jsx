@@ -1,18 +1,15 @@
-import { useState } from "react";
-
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Modal from '@mui/material/Modal';
-import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import OutlinedInput from '@mui/material/OutlinedInput';
+import SaveIcon from '@material-ui/icons/Save';
 
-export const UserModal = ({open, userData, changeHandler, handleClose, row = {}, handleSaveClick}) => {
-  
+export const UserModal = ({isNew, open, userData, changeHandler, handleClose, handleSaveClick, error}) => {
   const {firstName, lastName, email, department} = userData;
-
+  
   const style = {
     position: 'absolute',
     top: '50%',
@@ -34,7 +31,7 @@ export const UserModal = ({open, userData, changeHandler, handleClose, row = {},
       >
         <Box sx={style}>
           <Typography id="modal-modal-title" variant="h6" component="h2">
-            Edit User Details
+            {isNew ? 'Add' : 'Edit'} User Details
           </Typography>
           <FormControl fullWidth sx={{ m: 1 }}>
             <InputLabel htmlFor="first-name">First Name</InputLabel>
@@ -45,6 +42,7 @@ export const UserModal = ({open, userData, changeHandler, handleClose, row = {},
               name="firstName"
               onChange={changeHandler}
             />
+            <small className="custom-error">{error.firstName}</small>
         </FormControl>
         <FormControl fullWidth sx={{ m: 1 }}>
             <InputLabel htmlFor="last-name">Last Name</InputLabel>
@@ -55,6 +53,7 @@ export const UserModal = ({open, userData, changeHandler, handleClose, row = {},
               name="lastName"
               onChange={changeHandler}
             />
+          <small className="custom-error">{error.lastName}</small>
         </FormControl>
         <FormControl fullWidth sx={{ m: 1 }}>
             <InputLabel htmlFor="email">Email</InputLabel>
@@ -65,6 +64,7 @@ export const UserModal = ({open, userData, changeHandler, handleClose, row = {},
               label="email"
               onChange={changeHandler}
             />
+            <small className="custom-error">{error.email}</small>
         </FormControl>
         <FormControl fullWidth sx={{ m: 1 }}>
             <InputLabel htmlFor="department">Department</InputLabel>
@@ -75,8 +75,9 @@ export const UserModal = ({open, userData, changeHandler, handleClose, row = {},
               name="department"
               onChange={changeHandler}
             />
+            <small className="custom-error">{error.department}</small>
         </FormControl>
-          <Button variant="contained" color="success" onClick={handleSaveClick}>Save</Button>
+          <Button startIcon={<SaveIcon />} variant="contained" color="success" onClick={handleSaveClick}>Save</Button>
         </Box>
       </Modal>
   )
